@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ROBOG 2025">
+    <meta name="theme-color" content="#0f172a">
+    <title>ROBOG 2025: Planet Action 2D 競技 Web App</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        body {
+            background-color: #0b1120;
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang HK", sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 8px;
+            overflow-x: hidden;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 6px;
+        }
+        h1 { font-size: 1.25rem; color: #38bdf8; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .subtitle { font-size: 0.8rem; color: #94a3b8; }
+
+        #game-wrapper {
+            position: relative;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #334155;
+            background: #1e293b;
+            max-width: 100%;
+        }
+        .dashboard {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1e293b;
+            padding: 6px 14px;
+            width: 860px;
+            max-width: 100%;
+            border-bottom: 2px solid #334155;
+            font-size: 0.85rem;
+        }
+        .team-hud { display: flex; gap: 12px; align-items: center; }
+        .red-team { color: #f87171; font-weight: bold; }
+        .blue-team { color: #60a5fa; font-weight: bold; }
+        .timer-box { font-size: 1.05rem; font-weight: bold; color: #facc15; }
+
+        canvas { 
+            display: block; 
+            background: #090d16;
+            touch-action: none;
+        }
+
+        /* 觸控控制器面板 (支援平板 / 手機) */
+        .touch-controls {
+            display: none;
+            width: 860px;
+            max-width: 100%;
+            margin-top: 8px;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+        .touch-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 48px);
+            grid-template-rows: repeat(3, 48px);
+            gap: 4px;
+        }
+        .t-btn {
+            background: #334155;
+            border: 1px solid #475569;
+            color: #fff;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+        .t-btn:active { background: #0284c7; }
+        .action-pad {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            justify-content: center;
+        }
+        .act-btn {
+            background: #e11d48;
+            color: white;
+            font-weight: bold;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+        }
+        .act-btn:active { background: #be123c; transform: scale(0.98); }
+        .switch-btn {
+            background: #0284c7;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+
+        .controls-info {
+            width: 860px;
+            max-width: 100%;
+            margin-top: 8px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.78rem;
+            color: #cbd5e1;
+            background: #1e293b;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-red { background: #991b1b; color: #fee2e2; }
+        .badge-blue { background: #1e40af; color: #dbeafe; }
+        .k-btn {
+            background: #334155;
+            padding: 1px 5px;
+            border-radius: 3px;
+            border: 1px solid #475569;
+            color: #fff;
+            font-family: monospace;
+        }
+
+        @media (max-width: 880px) {
+            .touch-controls { display: flex; }
+            .controls-info { font-size: 0.7rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🚀 ROBOG 2025: Planet Action (新星行動) 2D 模擬競技 App</h1>
+    <div class="subtitle">依據 V2.3 規則手冊及計分表開發 | 支援線上連結與離線運行</div>
+</header>
+
+<div id="game-wrapper">
+    <div class="dashboard">
+        <div class="team-hud">
+            <span class="badge badge-red">紅方 (玩家)</span>
+            <span>總分: <b id="red-score">0</b></span>
+            <span>球站: <b id="red-station-balls">0</b> 顆</span>
+            <span>黃牌: <b id="red-cards">0</b></span>
+        </div>
+        <div class="timer-box">
+            <span id="phase-name">歷練階段 (自動)</span>: <span id="timer-val">60</span>s
+        </div>
+        <div class="team-hud">
+            <span>黃牌: <b id="blue-cards">0</b></span>
+            <span>球站: <b id="blue-station-balls">0</b> 顆</span>
+            <span>總分: <b id="blue-score">0</b></span>
+            <span class="badge badge-blue">藍方 (AI)</span>
+        </div>
+    </div>
+    <canvas id="gameCanvas" width="860" height="480"></canvas>
+</div>
+
+<!-- 觸控控制面板 -->
+<div class="touch-controls">
+    <div class="touch-pad">
+        <div></div>
+        <button class="t-btn" id="btn-up">▲</button>
+        <div></div>
+        <button class="t-btn" id="btn-left">◀</button>
+        <div></div>
+        <button class="t-btn" id="btn-right">▶</button>
+        <div></div>
+        <button class="t-btn" id="btn-down">▼</button>
+        <div></div>
+    </div>
+    <div class="action-pad">
+        <button class="act-btn switch-btn" id="btn-switch">切換工程車 / 變形車 (Tab)</button>
+        <button class="act-btn" id="btn-shoot">彈射發射小球 (Space)</button>
+    </div>
+</div>
+
+<div class="controls-info">
+    <div>
+        <strong>操控指南:</strong><br>
+        • 移動：<span class="k-btn">W/A/S/D</span> 或 螢幕箭頭<br>
+        • 彈射發射小球：長按 <span class="k-btn">空白鍵 (Space)</span> 或點擊發射按鈕蓄力<br>
+        • 切換機器人：<span class="k-btn">Tab</span>（切換 1 號工程車 / 2 號變形車）
+    </div>
+    <div>
+        <strong>競賽規則提示:</strong><br>
+        • 歷練期自動結算 QR 碼及公仔識別優勢（小球任務減少 2 顆）。<br>
+        • 對戰期必須<b>投滿小球</b>並<b>擊落對方前哨塔環</b>後，軍旗才解鎖！<br>
+        • <b>率先以小球擊倒對方軍旗者直接取得「絕殺勝 (Direct Victory)」！</b>
+    </div>
+</div>
+
+<script>
+// PWA Manifest 動態注入
+const manifestData = {
+    name: "ROBOG 2025 Planet Action",
+    short_name: "ROBOG Game",
+    start_url: "./index.html",
+    display: "standalone",
+    background_color: "#0b1120",
+    theme_color: "#0f172a",
+    icons: [{
+        src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230284c7'/><text y='65' font-size='50' x='25' fill='white'>🤖</text></svg>",
+        sizes: "192x192 512x512",
+        type: "image/svg+xml"
+    }]
+};
+const manifestBlob = new Blob([JSON.stringify(manifestData)], {type: 'application/manifest+json'});
+const manifestURL = URL.createObjectURL(manifestBlob);
+const linkTag = document.createElement('link');
+linkTag.rel = 'manifest';
+linkTag.href = manifestURL;
+document.head.appendChild(linkTag);
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const GAME_CONFIG = {
+    fieldWidth: 860,
+    fieldHeight: 480,
+    midlineX: 430,
+    trainingDuration: 60,
+    combatDuration: 240,
+};
+
+let gameState = {
+    phase: 'TRAINING',
+    timer: GAME_CONFIG.trainingDuration,
+    qrOdd: Math.random() > 0.5,
+    figureTarget: ['Walker', 'Yoyo', 'Walker X'][Math.floor(Math.random() * 3)],
+    winner: null,
+    winReason: ''
+};
+
+class Team {
+    constructor(id, name, color, isAi = false) {
+        this.id = id;
+        this.name = name;
+        this.color = color;
+        this.isAi = isAi;
+        this.score = 0;
+        this.trainingScore = 0;
+        this.ballsInStation = 0;
+        this.transferBalls = 0;
+        this.yellowCards = 0;
+        this.figureIdentified = false;
+        this.qrIdentified = false;
+        this.towerRingKnocked = false;
+        this.flagUnlocked = false;
+        this.flagKnocked = false;
+        this.blocksStacked = 0;
+        this.requiredBalls = 8;
+    }
+
+    calculateTotalScore() {
+        let combatBallScore = this.ballsInStation * 10;
+        if (this.blocksStacked > 0) combatBallScore *= 2;
+        let ringScore = this.towerRingKnocked ? 50 : 0;
+        let penalties = this.yellowCards * 10;
+        this.score = Math.max(0, this.trainingScore + combatBallScore + ringScore - penalties);
+        return this.score;
+    }
+}
+
+const redTeam = new Team('red', '紅方', '#ef4444', false);
+const blueTeam = new Team('blue', '藍方', '#3b82f6', true);
+
+class Robot {
+    constructor(x, y, team, type = 'engineer') {
+        this.x = x;
+        this.y = y;
+        this.team = team;
+        this.type = type;
+        this.radius = 18;
+        this.speed = type === 'transform' ? 3.3 : 2.5;
+        this.angle = team === 'red' ? 0 : Math.PI;
+        this.vx = 0;
+        this.vy = 0;
+        this.charge = 0;
+        this.maxCharge = 50;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        const minX = this.team === 'red' ? this.radius + 10 : GAME_CONFIG.midlineX + this.radius + 5;
+        const maxX = this.team === 'red' ? GAME_CONFIG.midlineX - this.radius - 5 : GAME_CONFIG.fieldWidth - this.radius - 10;
+        const minY = this.radius + 10;
+        const maxY = GAME_CONFIG.fieldHeight - this.radius - 10;
+
+        if (this.x < minX) this.x = minX;
+        if (this.x > maxX) this.x = maxX;
+        if (this.y < minY) this.y = minY;
+        if (this.y > maxY) this.y = maxY;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        ctx.fillStyle = this.team === 'red' ? '#dc2626' : '#2563eb';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(-this.radius, -this.radius, this.radius * 2, this.radius * 2, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#64748b';
+        if (this.type === 'engineer') {
+            ctx.fillRect(this.radius - 2, -6, 10, 3);
+            ctx.fillRect(this.radius - 2, 3, 10, 3);
+        } else {
+            ctx.fillRect(this.radius - 2, -4, 12, 8);
+        }
+
+        // 左指示燈 (QR ID: 奇紅偶藍)
+        ctx.fillStyle = gameState.qrOdd ? '#ef4444' : '#3b82f6';
+        ctx.beginPath();
+        ctx.arc(0, -this.radius + 4, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 右指示燈 (公仔)
+        let fCol = '#ef4444';
+        if (gameState.figureTarget === 'Yoyo') fCol = '#3b82f6';
+        if (gameState.figureTarget === 'Walker X') fCol = '#a855f7';
+        ctx.fillStyle = fCol;
+        ctx.beginPath();
+        ctx.arc(0, this.radius - 4, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 蓄力條
+        if (this.charge > 0) {
+            ctx.fillStyle = '#facc15';
+            ctx.fillRect(-this.radius, -this.radius - 8, (this.radius * 2) * (this.charge / this.maxCharge), 4);
+        }
+
+        ctx.restore();
+    }
+}
+
+const redRobots = [
+    new Robot(80, 140, 'red', 'engineer'),
+    new Robot(80, 340, 'red', 'transform')
+];
+let activeRedIndex = 0;
+
+const blueRobots = [
+    new Robot(780, 140, 'blue', 'engineer'),
+    new Robot(780, 340, 'blue', 'transform')
+];
+
+let balls = [];
+class Ball {
+    constructor(x, y, vx, vy, color, fromTeam) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.color = color;
+        this.fromTeam = fromTeam;
+        this.radius = 6;
+        this.active = true;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.96;
+        this.vy *= 0.96;
+
+        if (this.x < 10 || this.x > GAME_CONFIG.fieldWidth - 10) this.vx *= -0.7;
+        if (this.y < 10 || this.y > GAME_CONFIG.fieldHeight - 10) this.vy *= -0.7;
+
+        checkBallScoring(this);
+    }
+
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        ctx.fill();
+        ctx.stroke();
+    }
+}
+
+const ARENA = {
+    redStation: { x: 380, y: 190, w: 45, h: 100 },
+    blueStation: { x: 435, y: 190, w: 45, h: 100 },
+    redTower: { x: 260, y: 80, radius: 16, knocked: false },
+    blueTower: { x: 600, y: 80, radius: 16, knocked: false },
+    redFlag: { x: 120, y: 240, w: 12, h: 36, knocked: false },
+    blueFlag: { x: 740, y: 240, w: 12, h: 36, knocked: false },
+    transferZoneRed: { x: 200, y: 400, w: 80, h: 70 },
+    transferZoneBlue: { x: 580, y: 400, w: 80, h: 70 },
+};
+
+function checkBallScoring(ball) {
+    if (!ball.active) return;
+    // 計分站判定
+    if (ball.x > ARENA.redStation.x && ball.x < ARENA.redStation.x + ARENA.redStation.w &&
+        ball.y > ARENA.redStation.y && ball.y < ARENA.redStation.y + ARENA.redStation.h) {
+        ball.active = false;
+        redTeam.ballsInStation++;
+        checkFlagUnlock(redTeam);
+    }
+    if (ball.x > ARENA.blueStation.x && ball.x < ARENA.blueStation.x + ARENA.blueStation.w &&
+        ball.y > ARENA.blueStation.y && ball.y < ARENA.blueStation.y + ARENA.blueStation.h) {
+        ball.active = false;
+        blueTeam.ballsInStation++;
+        checkFlagUnlock(blueTeam);
+    }
+
+    // 擊倒前哨塔環判定 (50分)
+    if (ball.fromTeam === 'red' && !ARENA.blueTower.knocked) {
+        let dist = Math.hypot(ball.x - ARENA.blueTower.x, ball.y - ARENA.blueTower.y);
+        if (dist < ARENA.blueTower.radius + ball.radius) {
+            ARENA.blueTower.knocked = true;
+            redTeam.towerRingKnocked = true;
+            ball.active = false;
+            checkFlagUnlock(redTeam);
+        }
+    }
+    if (ball.fromTeam === 'blue' && !ARENA.redTower.knocked) {
+        let dist = Math.hypot(ball.x - ARENA.redTower.x, ball.y - ARENA.redTower.y);
+        if (dist < ARENA.redTower.radius + ball.radius) {
+            ARENA.redTower.knocked = true;
+            blueTeam.towerRingKnocked = true;
+            ball.active = false;
+            checkFlagUnlock(blueTeam);
+        }
+    }
+
+    // 擊倒軍旗判定 (直接絕殺勝)
+    if (ball.fromTeam === 'red' && redTeam.flagUnlocked && !ARENA.blueFlag.knocked) {
+        if (ball.x > ARENA.blueFlag.x && ball.x < ARENA.blueFlag.x + ARENA.blueFlag.w &&
+            ball.y > ARENA.blueFlag.y && ball.y < ARENA.blueFlag.y + ARENA.blueFlag.h) {
+            ARENA.blueFlag.knocked = true;
+            triggerDirectVictory(redTeam, '紅方小球擊倒對方軍旗，達成【絕殺勝利】！');
+        }
+    }
+    if (ball.fromTeam === 'blue' && blueTeam.flagUnlocked && !ARENA.redFlag.knocked) {
+        if (ball.x > ARENA.redFlag.x && ball.x < ARENA.redFlag.x + ARENA.redFlag.w &&
+            ball.y > ARENA.redFlag.y && ball.y < ARENA.redFlag.y + ARENA.redFlag.h) {
+            ARENA.redFlag.knocked = true;
+            triggerDirectVictory(blueTeam, '藍方小球擊倒對方軍旗，達成【絕殺勝利】！');
+        }
+    }
+}
+
+function checkFlagUnlock(team) {
+    if (team.ballsInStation >= team.requiredBalls && team.towerRingKnocked && team.yellowCards < 3) {
+        team.flagUnlocked = true;
+    }
+}
+
+function triggerDirectVictory(team, reason) {
+    gameState.phase = 'ENDED';
+    gameState.winner = team.name;
+    gameState.winReason = reason;
+}
+
+// 操控監聽 (鍵盤 + 觸控)
+const keys = {};
+window.addEventListener('keydown', (e) => {
+    keys[e.code] = true;
+    if (e.code === 'Tab') {
+        e.preventDefault();
+        activeRedIndex = (activeRedIndex + 1) % redRobots.length;
+    }
+});
+window.addEventListener('keyup', (e) => {
+    keys[e.code] = false;
+    if (e.code === 'Space') {
+        shootBall(redRobots[activeRedIndex]);
+    }
+});
+
+// 觸控按鍵事件綁定
+function setupTouchEvents(id, keyName) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; });
+    el.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
+    el.addEventListener('mousedown', (e) => { keys[keyName] = true; });
+    el.addEventListener('mouseup', (e) => { keys[keyName] = false; });
+}
+setupTouchEvents('btn-up', 'KeyW');
+setupTouchEvents('btn-down', 'KeyS');
+setupTouchEvents('btn-left', 'KeyA');
+setupTouchEvents('btn-right', 'KeyD');
+
+document.getElementById('btn-switch').addEventListener('click', () => {
+    activeRedIndex = (activeRedIndex + 1) % redRobots.length;
+});
+const shootBtn = document.getElementById('btn-shoot');
+shootBtn.addEventListener('mousedown', () => keys['Space'] = true);
+shootBtn.addEventListener('mouseup', () => { keys['Space'] = false; shootBall(redRobots[activeRedIndex]); });
+shootBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['Space'] = true; });
+shootBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['Space'] = false; shootBall(redRobots[activeRedIndex]); });
+
+function shootBall(robot) {
+    if (gameState.phase !== 'COMBAT') return;
+    const force = Math.max(5, (robot.charge / robot.maxCharge) * 14);
+    robot.charge = 0;
+    const vx = Math.cos(robot.angle) * force;
+    const vy = Math.sin(robot.angle) * force;
+    const color = Math.random() > 0.5 ? '#f97316' : '#a855f7';
+    balls.push(new Ball(robot.x + Math.cos(robot.angle) * 22, robot.y + Math.sin(robot.angle) * 22, vx, vy, color, robot.team));
+}
+
+// 比賽定時器
+setInterval(() => {
+    if (gameState.phase === 'ENDED') return;
+
+    gameState.timer--;
+    if (gameState.timer <= 0) {
+        if (gameState.phase === 'TRAINING') {
+            concludeTrainingPhase();
+            gameState.phase = 'COMBAT';
+            gameState.timer = GAME_CONFIG.combatDuration;
+            document.getElementById('phase-name').innerText = '對戰階段 (手動操作)';
+        } else if (gameState.phase === 'COMBAT') {
+            gameState.phase = 'ENDED';
+            redTeam.calculateTotalScore();
+            blueTeam.calculateTotalScore();
+            if (redTeam.score > blueTeam.score) {
+                gameState.winner = redTeam.name;
+                gameState.winReason = `時間結束，積分勝出 (${redTeam.score} : ${blueTeam.score})`;
+            } else if (blueTeam.score > redTeam.score) {
+                gameState.winner = blueTeam.name;
+                gameState.winReason = `時間結束，積分勝出 (${blueTeam.score} : ${redTeam.score})`;
+            } else {
+                gameState.winner = '平局';
+                gameState.winReason = `雙方總積分相同 (${redTeam.score} : ${blueTeam.score})`;
+            }
+        }
+    }
+    document.getElementById('timer-val').innerText = gameState.timer;
+}, 1000);
+
+function concludeTrainingPhase() {
+    redTeam.transferBalls = Math.floor(Math.random() * 3) + 2;
+    blueTeam.transferBalls = Math.floor(Math.random() * 3) + 2;
+    redTeam.trainingScore += redTeam.transferBalls * 10;
+    blueTeam.trainingScore += blueTeam.transferBalls * 10;
+    redTeam.ballsInStation += redTeam.transferBalls;
+    blueTeam.ballsInStation += blueTeam.transferBalls;
+
+    redTeam.trainingScore += 40;
+    blueTeam.trainingScore += 40;
+    redTeam.qrIdentified = true;
+    blueTeam.qrIdentified = true;
+
+    redTeam.figureIdentified = true;
+    redTeam.trainingScore += 20;
+    redTeam.requiredBalls -= 2;
+
+    blueTeam.figureIdentified = true;
+    blueTeam.trainingScore += 20;
+    blueTeam.requiredBalls -= 2;
+
+    redTeam.trainingScore += 100;
+    blueTeam.trainingScore += 100;
+}
+
+function update() {
+    if (gameState.phase === 'COMBAT') {
+        const curRobot = redRobots[activeRedIndex];
+        curRobot.vx = 0;
+        curRobot.vy = 0;
+        if (keys['KeyW'] || keys['ArrowUp']) curRobot.vy = -curRobot.speed;
+        if (keys['KeyS'] || keys['ArrowDown']) curRobot.vy = curRobot.speed;
+        if (keys['KeyA'] || keys['ArrowLeft']) curRobot.vx = -curRobot.speed;
+        if (keys['KeyD'] || keys['ArrowRight']) curRobot.vx = curRobot.speed;
+
+        if (curRobot.vx !== 0 || curRobot.vy !== 0) {
+            curRobot.angle = Math.atan2(curRobot.vy, curRobot.vx);
+        }
+
+        if (keys['Space']) {
+            if (curRobot.charge < curRobot.maxCharge) curRobot.charge++;
+        }
+
+        // AI 藍方行動
+        const aiBot = blueRobots[1];
+        if (!blueTeam.towerRingKnocked) {
+            const angleToTower = Math.atan2(ARENA.redTower.y - aiBot.y, ARENA.redTower.x - aiBot.x);
+            aiBot.angle = angleToTower;
+            if (Math.random() < 0.02) {
+                balls.push(new Ball(aiBot.x, aiBot.y, Math.cos(angleToTower) * 9, Math.sin(angleToTower) * 9, '#f97316', 'blue'));
+            }
+        } else if (blueTeam.flagUnlocked && !ARENA.redFlag.knocked) {
+            const angleToFlag = Math.atan2(ARENA.redFlag.y - aiBot.y, ARENA.redFlag.x - aiBot.x);
+            aiBot.angle = angleToFlag;
+            if (Math.random() < 0.03) {
+                balls.push(new Ball(aiBot.x, aiBot.y, Math.cos(angleToFlag) * 11, Math.sin(angleToFlag) * 11, '#a855f7', 'blue'));
+            }
+        } else {
+            const angleToStation = Math.atan2(ARENA.blueStation.y + 40 - aiBot.y, ARENA.blueStation.x - aiBot.x);
+            aiBot.angle = angleToStation;
+            if (Math.random() < 0.025) {
+                balls.push(new Ball(aiBot.x, aiBot.y, Math.cos(angleToStation) * 8, Math.sin(angleToStation) * 8, '#f97316', 'blue'));
+            }
+        }
+    }
+
+    redRobots.forEach(r => r.update());
+    blueRobots.forEach(r => r.update());
+    balls.forEach(b => b.update());
+    balls = balls.filter(b => b.active);
+
+    redTeam.calculateTotalScore();
+    blueTeam.calculateTotalScore();
+    document.getElementById('red-score').innerText = redTeam.score;
+    document.getElementById('blue-score').innerText = blueTeam.score;
+    document.getElementById('red-station-balls').innerText = redTeam.ballsInStation;
+    document.getElementById('blue-station-balls').innerText = blueTeam.ballsInStation;
+}
+
+function drawField() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = '#0b1329';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = '#334155';
+    ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+    ctx.fillStyle = 'rgba(234, 88, 12, 0.2)';
+    ctx.fillRect(ARENA.transferZoneRed.x, ARENA.transferZoneRed.y, ARENA.transferZoneRed.w, ARENA.transferZoneRed.h);
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
+    ctx.fillRect(ARENA.transferZoneBlue.x, ARENA.transferZoneBlue.y, ARENA.transferZoneBlue.w, ARENA.transferZoneBlue.h);
+
+    // 中線 (Midline)
+    ctx.strokeStyle = '#eab308';
+    ctx.lineWidth = 4;
+    ctx.setLineDash([8, 6]);
+    ctx.beginPath();
+    ctx.moveTo(GAME_CONFIG.midlineX, 10);
+    ctx.lineTo(GAME_CONFIG.midlineX, canvas.height - 10);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 球站
+    ctx.fillStyle = '#991b1b';
+    ctx.fillRect(ARENA.redStation.x, ARENA.redStation.y, ARENA.redStation.w, ARENA.redStation.h);
+    ctx.fillStyle = '#1e40af';
+    ctx.fillRect(ARENA.blueStation.x, ARENA.blueStation.y, ARENA.blueStation.w, ARENA.blueStation.h);
+    ctx.fillStyle = '#fff';
+    ctx.font = '10px sans-serif';
+    ctx.fillText('紅球站', ARENA.redStation.x + 6, ARENA.redStation.y + 50);
+    ctx.fillText('藍球站', ARENA.blueStation.x + 6, ARENA.blueStation.y + 50);
+
+    // 前哨塔環
+    drawTower(ARENA.redTower, redTeam.towerRingKnocked, '#ef4444');
+    drawTower(ARENA.blueTower, blueTeam.towerRingKnocked, '#3b82f6');
+
+    // 軍旗
+    drawFlag(ARENA.redFlag, redTeam.flagUnlocked, ARENA.redFlag.knocked, '#ef4444');
+    drawFlag(ARENA.blueFlag, blueTeam.flagUnlocked, ARENA.blueFlag.knocked, '#3b82f6');
+
+    balls.forEach(b => b.draw());
+    redRobots.forEach((r, idx) => {
+        r.draw();
+        if (idx === activeRedIndex) {
+            ctx.strokeStyle = '#facc15';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(r.x, r.y, r.radius + 5, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    });
+    blueRobots.forEach(r => r.draw());
+
+    if (gameState.phase === 'ENDED') {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#facc15';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`比賽結束 - 【${gameState.winner}】獲勝`, canvas.width / 2, 190);
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '16px sans-serif';
+        ctx.fillText(gameState.winReason, canvas.width / 2, 230);
+        ctx.fillText(`最終得分：紅方 ${redTeam.score} 分  vs  藍方 ${blueTeam.score} 分`, canvas.width / 2, 270);
+    }
+}
+
+function drawTower(tower, knocked, color) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(tower.x, tower.y, tower.radius, 0, Math.PI * 2);
+    ctx.fillStyle = knocked ? '#475569' : color;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(knocked ? '已擊倒' : '塔環', tower.x, tower.y + 4);
+    ctx.restore();
+}
+
+function drawFlag(flag, unlocked, knocked, color) {
+    ctx.save();
+    ctx.fillStyle = knocked ? '#334155' : (unlocked ? color : '#64748b');
+    ctx.fillRect(flag.x, flag.y, flag.w, flag.h);
+    ctx.strokeStyle = unlocked ? '#facc15' : '#94a3b8';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(flag.x, flag.y, flag.w, flag.h);
+
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(knocked ? '倒下' : (unlocked ? '可擊倒' : '未解鎖'), flag.x - 12, flag.y - 6);
+    ctx.restore();
+}
+
+function gameLoop() {
+    update();
+    drawField();
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
